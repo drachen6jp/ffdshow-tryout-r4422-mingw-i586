@@ -1,0 +1,520 @@
+# Makefile.mingw - ffdshow.ax (ffdshow-tryout r4422) MinGW cross build
+# 置き場所: trunk ルート (ffdshow_2010.sln と同じディレクトリ)
+# 使い方:  make -f Makefile.mingw -j14
+# 前提:    boost 1.49.0 を展開し BOOST_DIR で指す (既定は ../boost_1_49_0)
+# 出力:    bin/ffdshow.ax (ffmpeg.dll と同じ bin/ に出る)
+
+PREFIX  ?= i686-w64-mingw32-
+CC      := $(PREFIX)gcc
+CXX     := $(PREFIX)g++
+WINDRES := $(PREFIX)windres
+AR      := $(PREFIX)ar
+RANLIB  := $(PREFIX)ranlib
+YASM    ?= yasm
+
+BOOST_DIR ?= ../boost_1_49_0
+SHIMDIR   := mingw_shims
+OBJDIR    := obj/MinGW32/ffdshow
+TARGET    := bin/ffdshow.ax
+
+ARCHFLAGS := -march=i586 -O2 -pipe -fomit-frame-pointer
+DEFS := -DNDEBUG -DWIN32 -D_WINDOWS -D_CRT_NONSTDC_NO_WARNINGS \
+	-DARCH_IS_32BIT -DARCH_IS_IA32 -DUNICODE -D_UNICODE \
+	-DWINVER=0x0500 -D_WIN32_WINNT=0x0500 -D_WIN32_IE=0x0600 \
+	-DBOOST_THREAD_USE_LIB
+INCDIRS := $(SHIMDIR) src src/baseclasses src/settings src/dialog src/imgFilters \
+	src/codecs src/convert src/subtitles src/settings/filters src/audioFilters \
+	src/ffmpeg src/muxers src/acm src/filters $(BOOST_DIR)
+INCS := $(addprefix -I,$(INCDIRS))
+CXXFLAGS := $(ARCHFLAGS) -std=gnu++98 -fpermissive -Drestrict=__restrict__ $(DEFS) $(INCS)
+CFLAGS   := $(ARCHFLAGS) -std=gnu99 $(DEFS) $(INCS)
+
+SRCS_CPP := \
+	src/checkHardCodedBlackList.cpp \
+	src/codecs/TvideoCodecQuickSync.cpp \
+	src/convert/ffdshow_converters2.cpp \
+src/convert/ffdshow_converters2_mmx.cpp \
+src/convert/ffdshow_converters2_mmxext.cpp \
+src/convert/ffdshow_converters2_sse2.cpp \
+	src/dsutil.cpp \
+	src/dwstring.cpp \
+	src/ffdshowRemoteAPI.cpp \
+	src/ffglobals.cpp \
+	src/inifiles.cpp \
+	src/mem_align.cpp \
+	src/stdafx.cpp \
+	src/subtitles/CPolygon.cpp \
+	src/subtitles/TsubtitleFormat.cpp \
+	src/subtitles/TsubtitleMixedProps.cpp \
+	src/TaudioParser.cpp \
+	src/Tbitdata.cpp \
+	src/TcpuUsage.cpp \
+	src/Teval.cpp \
+	src/TffDecoder_com.cpp \
+	src/TffDecoder_reg.cpp \
+	src/TffDecoderDXVA.cpp \
+	src/TffdshowBase.cpp \
+	src/TffdshowDec.cpp \
+	src/TffdshowDecAudio.cpp \
+	src/TffdshowDecAudioInputPin.cpp \
+	src/TffdshowDecVideo.cpp \
+	src/TffdshowDecVideoAllocator.cpp \
+	src/TffdshowDecVideoAllocatorDXVA.cpp \
+	src/TffdshowDecVideoOutputPin.cpp \
+	src/TffdshowVideoInputPin.cpp \
+	src/TffOutputQ.cpp \
+	src/TffProcBase.cpp \
+	src/Tinfo.cpp \
+	src/TinputPin.cpp \
+	src/TkeyboardDirect.cpp \
+	src/TPerformanceCounter.cpp \
+	src/TtextInputPin.cpp \
+	src/Ttranslate.cpp \
+	src/TtrayIcon.cpp \
+	src/subtitles/cc_decoder.cpp \
+	src/subtitles/distance.cpp \
+	src/subtitles/nmTextSubtitles.cpp \
+	src/subtitles/Rasterizer.cpp \
+	src/subtitles/spudec.cpp \
+	src/subtitles/Tfont.cpp \
+	src/subtitles/TfontSettings.cpp \
+	src/subtitles/ThtmlColors.cpp \
+	src/subtitles/TrenderedTextSubtitleWord.cpp \
+	src/subtitles/TspuImage.cpp \
+	src/subtitles/TSSAstyles.cpp \
+	src/subtitles/Tstream.cpp \
+	src/subtitles/Tsubreader.cpp \
+	src/subtitles/TsubreaderMplayer.cpp \
+	src/subtitles/TsubreaderPGS.cpp \
+	src/subtitles/TsubreaderVobsub.cpp \
+	src/subtitles/TsubtitleDVD.cpp \
+	src/subtitles/TsubtitlePGS.cpp \
+	src/subtitles/TsubtitlePGSParser.cpp \
+	src/subtitles/TsubtitleProps.cpp \
+	src/subtitles/Tsubtitles.cpp \
+	src/subtitles/TsubtitlesFile.cpp \
+	src/subtitles/TsubtitlesTextpin.cpp \
+	src/subtitles/TsubtitlesTextpinDVD.cpp \
+	src/subtitles/TsubtitlesTextpinPGS.cpp \
+	src/subtitles/TsubtitlesTextpinText.cpp \
+	src/subtitles/TsubtitlesTextpinVobSub.cpp \
+	src/subtitles/TsubtitleText.cpp \
+	src/subtitles/TsubtitleVobsub.cpp \
+	src/subtitles/TwordWrap.cpp \
+	src/subtitles/vobsub.cpp \
+	src/imgFilters/2xsai.cpp \
+	src/imgFilters/md5sum.cpp \
+	src/imgFilters/SimpleResize.cpp \
+	src/imgFilters/T3x3blur.cpp \
+	src/imgFilters/TcubicTable.cpp \
+	src/imgFilters/TffPict.cpp \
+	src/imgFilters/ThwOverlayControlOverlay.cpp \
+	src/imgFilters/ThwOverlayControlVMR9.cpp \
+	src/imgFilters/TimgFilter.cpp \
+	src/imgFilters/avisynth/TimgFilterAvisynth.cpp \
+	src/imgFilters/TimgFilterBitmap.cpp \
+	src/imgFilters/TimgFilterBlur.cpp \
+	src/imgFilters/TimgFilterChroma.cpp \
+	src/imgFilters/TimgFilterColorize.cpp \
+	src/imgFilters/TimgFilterCrop.cpp \
+	src/imgFilters/TimgFilterDCT.cpp \
+	src/imgFilters/TimgFilterDeinterlace.cpp \
+	src/imgFilters/TimgFilterDenoise3d.cpp \
+	src/imgFilters/TimgFilterDGbob.cpp \
+	src/imgFilters/TimgFilterDScaler.cpp \
+	src/imgFilters/TimgFilterDScalerDeinterlace.cpp \
+	src/imgFilters/TimgFilterExpand.cpp \
+	src/imgFilters/TimgFilterGrab.cpp \
+	src/imgFilters/TimgFilterGradfun.cpp \
+	src/imgFilters/TimgFilterGradualDenoise.cpp \
+	src/imgFilters/TimgFilterHWoverlay.cpp \
+	src/imgFilters/TimgFilterKernelDeint.cpp \
+	src/imgFilters/TimgFilterLevels.cpp \
+	src/imgFilters/TimgFilterLogoaway.cpp \
+	src/imgFilters/TimgFilterLuma.cpp \
+	src/imgFilters/TimgFilterNoise.cpp \
+	src/imgFilters/TimgFilterOffset.cpp \
+	src/imgFilters/TimgFilterOSD.cpp \
+	src/imgFilters/TimgFilterOutput.cpp \
+	src/imgFilters/TimgFilterPerspective.cpp \
+	src/imgFilters/TimgFilterPostproc.cpp \
+	src/imgFilters/TimgFilterResize.cpp \
+	src/imgFilters/TimgFilters.cpp \
+	src/imgFilters/TimgFilterSharpen.cpp \
+	src/imgFilters/TimgFilterShowMV.cpp \
+	src/imgFilters/TimgFilterSmoother.cpp \
+	src/imgFilters/TimgFilterSubtitles.cpp \
+	src/imgFilters/TimgFilterTimesmooth.cpp \
+	src/imgFilters/TimgFilterTomsMoComp.cpp \
+	src/imgFilters/TimgFilterWarpsharp.cpp \
+	src/imgFilters/TimgFilterYadif.cpp \
+	src/imgFilters/TffProc.cpp \
+	src/imgFilters/nic/nic_postProcess.cpp \
+	src/imgFilters/asharp/asharp.cpp \
+	src/imgFilters/avisynth/Tavisynth.cpp \
+	src/dialog/Cabout.cpp \
+	src/dialog/CaudioDenoise.cpp \
+	src/dialog/CaudioSwitcher.cpp \
+	src/dialog/Cavisynth.cpp \
+	src/dialog/Cbitmap.cpp \
+	src/dialog/Cblur.cpp \
+	src/dialog/CchannelSwap.cpp \
+	src/dialog/Ccodecs.cpp \
+	src/dialog/Cconvolver.cpp \
+	src/dialog/Ccrop.cpp \
+	src/dialog/Ccrystality.cpp \
+	src/dialog/CcspOptions.cpp \
+	src/dialog/Cdct.cpp \
+	src/dialog/CdecoderOptions.cpp \
+	src/dialog/Cdeinterlace.cpp \
+	src/dialog/CdeinterlaceDGBob.cpp \
+	src/dialog/CdeinterlaceDScaler.cpp \
+	src/dialog/CdeinterlaceFramedoubler.cpp \
+	src/dialog/CdeinterlaceKernel.cpp \
+	src/dialog/CdeinterlaceTomsMoComp.cpp \
+	src/dialog/CdeinterlaceYadif.cpp \
+	src/dialog/Cdelay.cpp \
+	src/dialog/Cdirectshowcontrol.cpp \
+	src/dialog/CdolbyDecoder.cpp \
+	src/dialog/CDScaler.cpp \
+	src/dialog/CDXVAOptions.cpp \
+	src/dialog/Ceq.cpp \
+	src/dialog/Cfir.cpp \
+	src/dialog/Cfont.cpp \
+	src/dialog/Cfreeverb.cpp \
+	src/dialog/Cgeneric.cpp \
+	src/dialog/CgenericDV.cpp \
+	src/dialog/CgenericFFV1.cpp \
+	src/dialog/CgenericHuffyuv.cpp \
+	src/dialog/CgenericRAW.cpp \
+	src/dialog/Cgrab.cpp \
+	src/dialog/CgradFun.cpp \
+	src/dialog/Cgraph.cpp \
+	src/dialog/ChideShow.cpp \
+	src/dialog/Cin.cpp \
+	src/dialog/Cinfosimd.cpp \
+	src/dialog/Ckeys.cpp \
+	src/dialog/Clevels.cpp \
+	src/dialog/ClfeCrossover.cpp \
+	src/dialog/Clogoaway.cpp \
+	src/dialog/Cmixer.cpp \
+	src/dialog/Cnoise.cpp \
+	src/dialog/Coffset.cpp \
+	src/dialog/Conepass.cpp \
+	src/dialog/COSD.cpp \
+	src/dialog/Cout.cpp \
+	src/dialog/Coutcsps.cpp \
+	src/dialog/Coutsfs.cpp \
+	src/dialog/Coverlay.cpp \
+	src/dialog/Cperspective.cpp \
+	src/dialog/CpictProp.cpp \
+	src/dialog/CpostProc.cpp \
+	src/dialog/Cpresets.cpp \
+	src/dialog/Cprocsfs.cpp \
+	src/dialog/Cquant.cpp \
+	src/dialog/CquantTables.cpp \
+	src/dialog/Cqueue.cpp \
+	src/dialog/Cresample.cpp \
+	src/dialog/CresizeAspect.cpp \
+	src/dialog/CresizeBorders.cpp \
+	src/dialog/CresizeSettings.cpp \
+	src/dialog/Csharpen.cpp \
+	src/dialog/CshowMV.cpp \
+	src/dialog/Csubtitles.cpp \
+	src/dialog/CsubtitlesPos.cpp \
+	src/dialog/CsubtitlesText.cpp \
+	src/dialog/Ctray.cpp \
+	src/dialog/Cvobsub.cpp \
+	src/dialog/Cvolume.cpp \
+	src/dialog/Cwarpsharp.cpp \
+	src/dialog/Cwinamp2.cpp \
+	src/dialog/TcompatibilityList.cpp \
+	src/dialog/TcompatibilityManager.cpp \
+	src/dialog/TconfPageBase.cpp \
+	src/dialog/TconfPageDec.cpp \
+	src/dialog/TDScalerSettings.cpp \
+	src/dialog/TffdshowPageBase.cpp \
+	src/dialog/TffdshowPageDec.cpp \
+	src/dialog/TffdshowPageDecAudio.cpp \
+	src/dialog/TffdshowPageDecVideo.cpp \
+	src/dialog/TffdshowPageEnc.cpp \
+	src/dialog/TflatButtons.cpp \
+	src/dialog/TpageSite.cpp \
+	src/dialog/TpresetAutoload.cpp \
+	src/dialog/TpresetsEncDlg.cpp \
+	src/dialog/TSpecifyPropertyPagesVE.cpp \
+	src/dialog/TversionsDlg.cpp \
+	src/dialog/Twidget.cpp \
+	src/dialog/Twindow.cpp \
+	src/dialog/audio/CaudioDecoderOptions.cpp \
+	src/settings/reg.cpp \
+	src/settings/TcodecSettings.cpp \
+	src/Tconfig.cpp \
+	src/settings/TdialogSettings.cpp \
+	src/settings/TglobalSettings.cpp \
+	src/settings/Toptions.cpp \
+	src/settings/TpresetEnc.cpp \
+	src/settings/Tpresets.cpp \
+	src/settings/TpresetSettings.cpp \
+	src/settings/TpresetSettingsAudio.cpp \
+	src/settings/TpresetSettingsVideo.cpp \
+	src/settings/TfilterSettings.cpp \
+	src/settings/filters/TavisynthSettings.cpp \
+	src/settings/filters/TbitmapSettings.cpp \
+	src/settings/filters/TblurSettings.cpp \
+	src/settings/filters/TcropSettings.cpp \
+	src/settings/filters/TdctSettings.cpp \
+	src/settings/filters/TdeinterlaceSettings.cpp \
+	src/settings/filters/TdscalerFilterSettings.cpp \
+	src/settings/filters/TexpandSettings.cpp \
+	src/settings/filters/TgrabSettings.cpp \
+	src/settings/filters/TgradFunSettings.cpp \
+	src/settings/filters/ThwOverlaySettings.cpp \
+	src/settings/filters/TlevelsSettings.cpp \
+	src/settings/filters/TlogoawaySettings.cpp \
+	src/settings/filters/TnoiseSettings.cpp \
+	src/settings/filters/ToffsetSettings.cpp \
+	src/settings/filters/TOSDsettings.cpp \
+	src/settings/filters/ToutputVideoSettings.cpp \
+	src/settings/filters/TperspectiveSettings.cpp \
+	src/settings/filters/TpictPropSettings.cpp \
+	src/settings/filters/TpostprocSettings.cpp \
+	src/settings/filters/TresizeAspectSettings.cpp \
+	src/settings/filters/TsharpenSettings.cpp \
+	src/settings/filters/TsubtitlesSettings.cpp \
+	src/settings/filters/TvisSettings.cpp \
+	src/settings/filters/TwarpsharpSettings.cpp \
+	src/settings/filters/TaudioDenoiseSettings.cpp \
+	src/settings/filters/TchannelSwapSettings.cpp \
+	src/settings/filters/TconvolverSettings.cpp \
+	src/settings/filters/TcrystalitySettings.cpp \
+	src/settings/filters/TdelaySettings.cpp \
+	src/settings/filters/TdolbyDecoderSettings.cpp \
+	src/settings/filters/TeqSettings.cpp \
+	src/settings/filters/TfirSettings.cpp \
+	src/settings/filters/TfreeverbSettings.cpp \
+	src/settings/filters/TlfeCrossoverSettings.cpp \
+	src/settings/filters/TmixerSettings.cpp \
+	src/settings/filters/ToutputAudioSettings.cpp \
+	src/settings/filters/TresampleSettings.cpp \
+	src/settings/filters/TvolumeSettings.cpp \
+	src/settings/filters/Twinamp2settings.cpp \
+	src/codecs/ffcodecs.cpp \
+	src/codecs/mp3header.cpp \
+	src/codecs/reorder_ch.cpp \
+	src/codecs/TaudioCodec.cpp \
+	src/codecs/TaudioCodecAvisynth.cpp \
+	src/codecs/TaudioCodecBitstream.cpp \
+	src/codecs/TaudioCodecLiba52.cpp \
+	src/codecs/TaudioCodecLibavcodec.cpp \
+	src/codecs/TaudioCodecLibDTS.cpp \
+	src/codecs/TaudioCodecLibFAAD.cpp \
+	src/codecs/TaudioCodecLibMAD.cpp \
+	src/codecs/TaudioCodecUncompressed.cpp \
+	src/codecs/Tcodec.cpp \
+	src/codecs/TrealAudioInfo.cpp \
+	src/codecs/TvideoCodec.cpp \
+	src/codecs/TvideoCodecAvisynth.cpp \
+	src/codecs/TvideoCodecLibavcodec.cpp \
+	src/codecs/TvideoCodecLibavcodecDxva.cpp \
+	src/codecs/TvideoCodecLibmpeg2.cpp \
+	src/codecs/TvideoCodecUncompressed.cpp \
+	src/codecs/TvideoCodecWmv9.cpp \
+	src/codecs/TvideoCodecXviD4.cpp \
+	src/ffmpeg/Tlibavcodec.cpp \
+	src/codecs/H264Nalu.cpp \
+	src/codecs/TDXVADecoder.cpp \
+	src/codecs/TDXVADecoderH264.cpp \
+	src/codecs/TDXVADecoderVC1.cpp \
+	src/convert/ffdshow_converters.cpp \
+	src/imgFilters/ffImgfmt.cpp \
+	src/convert/image.cpp \
+	src/convert/Tconvert.cpp \
+src/convert/Tconvert_mmx.cpp \
+src/convert/Tconvert_mmxext.cpp \
+src/convert/Tconvert_sse2.cpp \
+src/convert/Tconvert_yuy2rgb_mmx.cpp \
+src/convert/Tconvert_yuy2rgb_sse2.cpp \
+	src/convert/TrgbPrimaries.cpp \
+	src/convert/Tswscale.cpp \
+	src/audioFilters/dither.cpp \
+	src/audioFilters/fftsg.cpp \
+	src/audioFilters/firfilter.cpp \
+	src/audioFilters/mixer.cpp \
+	src/audioFilters/TaudioFilter.cpp \
+	src/audioFilters/TaudioFilterChannelSwap.cpp \
+	src/audioFilters/TaudioFilterConvolver.cpp \
+	src/audioFilters/TaudioFilterCrystality.cpp \
+	src/audioFilters/TaudioFilterDelay.cpp \
+	src/audioFilters/TaudioFilterDenoise.cpp \
+	src/audioFilters/TaudioFilterDolbyDecoder.cpp \
+	src/audioFilters/TaudioFilterEQ.cpp \
+	src/audioFilters/TaudioFilterEQsuper.cpp \
+	src/audioFilters/TaudioFilterFIR.cpp \
+	src/audioFilters/TaudioFilterFreeverb.cpp \
+	src/audioFilters/TaudioFilterHeadphone.cpp \
+	src/audioFilters/TaudioFilterLFEcrossover.cpp \
+	src/audioFilters/TaudioFilterMixer.cpp \
+	src/audioFilters/TaudioFilterOSD.cpp \
+	src/audioFilters/TaudioFilterOutput.cpp \
+	src/audioFilters/TaudioFilterResample.cpp \
+	src/audioFilters/TaudioFilters.cpp \
+	src/audioFilters/TaudioFilterVolume.cpp \
+	src/audioFilters/TaudioFilterWinamp2.cpp \
+	src/audioFilters/TsampleFormat.cpp \
+	src/audioFilters/winamp2/Twinamp2.cpp \
+	src/audioFilters/freeverb/revmodel.cpp \
+	src/audioFilters/resample/resample2.cpp \
+	src/audioFilters/TffProcAudio.cpp \
+	src/codecs/TencStats.cpp \
+	src/TffdshowEnc.cpp \
+	src/Tffvfw.cpp \
+	src/muxers/Tmuxer.cpp \
+	src/muxers/TmuxerFile.cpp \
+	src/acm/Tacm.cpp \
+	src/CSSauth.cpp \
+	src/CSSscramble.cpp \
+	src/DeCSSInputPin.cpp \
+	src/filters/Tfilter.cpp \
+	src/filters/Tfilters.cpp \
+	src/filters/TOSDprovider.cpp \
+	src/baseclasses/amfilter.cpp \
+	src/baseclasses/combase.cpp \
+	src/baseclasses/dllentry.cpp \
+	src/baseclasses/dllsetup.cpp \
+	src/baseclasses/mtype.cpp \
+	src/baseclasses/outputq.cpp \
+	src/baseclasses/pstream.cpp \
+	src/baseclasses/strmiids.cpp \
+	src/baseclasses/transfrm.cpp \
+	src/baseclasses/wxdebug.cpp \
+	src/baseclasses/wxlist.cpp \
+	src/baseclasses/wxutil.cpp
+
+SRCS_C := \
+	src/ffdebug.c \
+	src/ffmpeg/libavcodec/golomb.c \
+	src/settings/lzo/minilzo.c
+
+SRCS_ASM := \
+	src/cpuid.asm \
+	src/memcpy.asm \
+	src/subtitles/fontRenderer.asm \
+	src/imgFilters/simple_idct_mmx.asm \
+	src/imgFilters/Skal/fdct_mmx_skal.asm \
+	src/imgFilters/Skal/fdct_sse2_skal.asm \
+	src/imgFilters/Skal/idct_mmx.asm \
+	src/imgFilters/Skal/idct_sse2_dmitry.asm \
+	src/convert/colorspace_rgb_mmx.asm \
+	src/audioFilters/dotproduct.asm \
+	src/audioFilters/TaudioFilterConvert.asm
+
+OBJS := $(addprefix $(OBJDIR)/,$(SRCS_CPP:.cpp=.o) $(SRCS_C:.c=.o) $(SRCS_ASM:.asm=.o))
+RES_OBJ := $(OBJDIR)/ffdshow_res.o $(OBJDIR)/manifest_res.o
+BOOST_OBJS := $(OBJDIR)/boost_thread.o $(OBJDIR)/boost_tss_pe.o
+BOOST_LIB := $(OBJDIR)/libboost_thread.a
+
+LDLIBS := -lkernel32 -luser32 -lgdi32 -lwinspool -lcomdlg32 -ladvapi32 \
+	-lshell32 -lole32 -loleaut32 -luuid -lwinmm -lcomctl32 -ldinput \
+	-ldxguid -lshlwapi -ld3d9
+LDFLAGS := -Wl,--enable-stdcall-fixup -Wl,--large-address-aware \
+	-Wl,--major-subsystem-version=5,--minor-subsystem-version=0 \
+	-static-libgcc -static-libstdc++
+
+.PHONY: all clean check
+all: $(TARGET)
+
+$(TARGET): $(OBJS) $(RES_OBJ) $(BOOST_LIB) $(OBJDIR)/guids.o $(OBJDIR)/interlocked_shim.o $(OBJDIR)/uuidof_shim.o $(OBJDIR)/win2k_compat.o src/ffdshow.def | bin
+	$(CXX) -shared -o $@ $(OBJS) $(RES_OBJ) $(BOOST_LIB) $(OBJDIR)/guids.o $(OBJDIR)/interlocked_shim.o $(OBJDIR)/uuidof_shim.o $(OBJDIR)/win2k_compat.o src/ffdshow.def $(LDFLAGS) $(LDLIBS)
+
+$(OBJDIR)/guids.o: $(SHIMDIR)/guids.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(OBJDIR)/interlocked_shim.o: $(SHIMDIR)/interlocked_shim.c
+	@mkdir -p $(@D)
+	$(CC) $(ARCHFLAGS) -O2 -c -o $@ $<
+
+$(OBJDIR)/uuidof_shim.o: $(SHIMDIR)/uuidof_shim.c
+	@mkdir -p $(@D)
+	$(CC) $(ARCHFLAGS) -O2 -c -o $@ $<
+
+
+$(OBJDIR)/win2k_compat.o: $(SHIMDIR)/win2k_compat.c
+	@mkdir -p $(@D)
+	$(CC) $(ARCHFLAGS) -O2 -c -o $@ $<
+bin:
+	mkdir -p bin
+
+# svn_version.h (update_version.bat + SubWCRev の代替: リビジョン 4422 固定)
+src/svn_version.h:
+	printf '#define SVN_REVISION 4422\n#define BUILD_YEAR "%s"\n#define BUILD_MONTH "%s"\n#define BUILD_DAY "%s"\n' $$(date +%Y) $$(date +%m) $$(date +%d) > $@
+
+# stdafx.h を先に読むため全 TU が svn_version.h に依存するわけではないが、
+# version.h 経由で必要なのはリソースだけなので、依存は .rc 側に付ける
+$(OBJDIR)/ffdshow_res.o: src/ffdshow.rc src/ffdshow.rc2 src/version.h src/svn_version.h
+	@mkdir -p $(@D)
+	$(WINDRES) $(DEFS) $(INCS) -I src -o $@ $<
+
+# マニフェスト (comctl32 v6) をリソース ID 2 で埋め込む
+$(OBJDIR)/manifest_res.o: $(SHIMDIR)/ffdshow.ax.manifest
+	@mkdir -p $(@D)
+	printf '2 24 "%s"\n' "$(abspath $(SHIMDIR)/ffdshow.ax.manifest)" > $(OBJDIR)/manifest.rc
+	$(WINDRES) -o $@ $(OBJDIR)/manifest.rc
+
+# boost::thread 1.49 (win32) - ffdshow が使うのは mutex/thread 系のみ
+# thread_specific_ptr は未使用なので tss は tss_pe で足りる (駄目なら tss_null.cpp に差し替え)
+$(OBJDIR)/boost_thread.o: $(BOOST_DIR)/libs/thread/src/win32/thread.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(ARCHFLAGS) -std=gnu++98 -DBOOST_THREAD_BUILD_LIB -DBOOST_ALL_NO_LIB -I$(BOOST_DIR) -c -o $@ $<
+$(OBJDIR)/boost_tss_pe.o: $(BOOST_DIR)/libs/thread/src/win32/tss_pe.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(ARCHFLAGS) -std=gnu++98 -DBOOST_THREAD_BUILD_LIB -DBOOST_ALL_NO_LIB -I$(BOOST_DIR) -c -o $@ $<
+$(BOOST_LIB): $(BOOST_OBJS)
+	$(AR) rcs $@ $(BOOST_OBJS)
+	$(RANLIB) $@
+
+# SIMD を使う TU は実行時 CPUID ディスパッチ前提なので、対象ファイルだけ
+# MMX/SSE2 を有効にして組む (simd.h の Tsse2 等は __SSE2__ でガードされている)
+$(OBJDIR)/src/convert/Tconvert.o $(OBJDIR)/src/convert/ffdshow_converters.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+$(OBJDIR)/src/convert/ffdshow_converters2_mmx.o: CXXFLAGS += -mmmx -mno-cmov
+$(OBJDIR)/src/convert/ffdshow_converters2_mmxext.o: CXXFLAGS += -mmmx -msse -mno-cmov
+$(OBJDIR)/src/convert/ffdshow_converters2_sse2.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+$(OBJDIR)/src/subtitles/CPolygon.o $(OBJDIR)/src/subtitles/Tfont.o $(OBJDIR)/src/subtitles/TsubtitleText.o $(OBJDIR)/src/subtitles/TrenderedTextSubtitleWord.o $(OBJDIR)/src/subtitles/TspuImage.o $(OBJDIR)/src/subtitles/TsubtitleDVD.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+$(OBJDIR)/src/imgFilters/TimgFilterNoise.o $(OBJDIR)/src/settings/filters/TnoiseSettings.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+$(OBJDIR)/src/imgFilters/TimgFilterBitmap.o $(OBJDIR)/src/imgFilters/TimgFilterBlur.o $(OBJDIR)/src/imgFilters/TimgFilterChroma.o $(OBJDIR)/src/imgFilters/TimgFilterColorize.o $(OBJDIR)/src/imgFilters/TimgFilterDeinterlace.o $(OBJDIR)/src/imgFilters/TimgFilterGradualDenoise.o $(OBJDIR)/src/imgFilters/TimgFilterLuma.o $(OBJDIR)/src/imgFilters/TimgFilterPostproc.o $(OBJDIR)/src/imgFilters/TimgFilterSharpen.o $(OBJDIR)/src/imgFilters/TimgFilterWarpsharp.o $(OBJDIR)/src/imgFilters/SimpleResize.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+$(OBJDIR)/src/audioFilters/TaudioFilter.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+$(OBJDIR)/src/imgFilters/2xsai.o $(OBJDIR)/src/imgFilters/TimgFilterDCT.o $(OBJDIR)/src/imgFilters/TimgFilterPerspective.o $(OBJDIR)/src/imgFilters/TimgFilterShowMV.o $(OBJDIR)/src/convert/TrgbPrimaries.o $(OBJDIR)/src/TffdshowEnc.o $(OBJDIR)/src/codecs/TvideoCodecLibavcodec.o: CXXFLAGS += -mmmx
+$(OBJDIR)/src/imgFilters/TimgFilterDenoise3d.o $(OBJDIR)/src/imgFilters/nic/nic_postProcess.o $(OBJDIR)/src/imgFilters/asharp/asharp.o $(OBJDIR)/src/convert/image.o $(OBJDIR)/src/audioFilters/firfilter.o: CXXFLAGS += -mmmx -msse -mno-cmov
+$(OBJDIR)/src/convert/Tconvert_mmx.o: CXXFLAGS += -mmmx -mno-cmov
+$(OBJDIR)/src/convert/Tconvert_mmxext.o: CXXFLAGS += -mmmx -msse -mno-cmov
+$(OBJDIR)/src/convert/Tconvert_sse2.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+$(OBJDIR)/src/convert/Tconvert_yuy2rgb_mmx.o: CXXFLAGS += -mmmx -mno-cmov
+$(OBJDIR)/src/convert/Tconvert_yuy2rgb_sse2.o: CXXFLAGS += -mmmx -msse2 -mno-cmov
+
+$(OBJDIR)/%.o: %.cpp
+	@mkdir -p $(@D)
+	$(CXX) $(CXXFLAGS) -c -o $@ $<
+
+$(OBJDIR)/%.o: %.c
+	@mkdir -p $(@D)
+	$(CC) $(CFLAGS) -c -o $@ $<
+
+# .asm は VS 側 yasm.cmd と同じフラグ (Win32: -DPREFIX -DWIN32 -DHAVE_SSE3 -DUSE32 -Dalloc -Dexec)
+$(OBJDIR)/%.o: %.asm
+	@mkdir -p $(@D)
+	$(YASM) -f win32 -DPREFIX -DWIN32 -DHAVE_SSE3 -DUSE32 -Dalloc -Dexec -I $(dir $<) -I src -o $@ $<
+
+clean:
+	rm -rf obj/MinGW32 bin/ffdshow.ax
+
+# 検証の門: 輸入に XP API が無いこと、輸出 13 件が公式と一致すること
+check: $(TARGET)
+	@echo "--- DLL Name ---"
+	@$(PREFIX)objdump -p $(TARGET) | grep "DLL Name"
+	@echo "--- XP API check (何も出なければ合格) ---"
+	@$(PREFIX)objdump -p $(TARGET) | grep -E "EncodePointer|DecodePointer|SListHead|EntrySList|QueryDepthSList|ConditionVariable|GetThreadId|wcscpy_s|wcscat_s|wcsncpy_s|wcsncat_s|snwprintf_s|wmakepath_s|wsplitpath_s" || echo OK
+	@echo "--- exports ---"
+	@$(PREFIX)objdump -p $(TARGET) | sed -n "/Ordinal\/Name Pointer/,/^$$/p" | grep -E "^\s*\[\s*[0-9]+\]" | grep -oE "[A-Za-z_][A-Za-z0-9_]*$$" | sort
+	@echo "--- cmov census ---"
+	@$(PREFIX)objdump -d $(TARGET) | grep -c cmov || true

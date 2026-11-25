@@ -1,0 +1,8 @@
+# Build outputs — the binaries are distributed via GitHub Releases,
+# and the repository holds the corresponding source (GPL section 3).
+obj/
+bin/
+.svn/
+*.o
+*.a
+*.res
