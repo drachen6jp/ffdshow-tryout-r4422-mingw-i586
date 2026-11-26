@@ -26,9 +26,11 @@ Notes from testing:
   fails during DXVA negotiation). Software decoding works.
 - ForceWare 169.21 and 175.16 fail DXVA negotiation even at 720p in this
   environment. 163.75 is the confirmed driver.
-- Playback smoothness also depends on disk transfer speed; a PIO-mode HDD
-  cannot feed 720p fast enough (a UDMA controller or even USB 1.1 storage
-  works better).
+- Playback smoothness can also depend on disk transfer speed. In one
+  test environment a PIO-mode HDD could not feed 720p fast enough
+  (reading from USB 1.1 storage worked better); in another environment
+  the same kind of PIO-mode HDD played 720p without starving. It
+  depends on the environment.
 
 ## Installation
 
@@ -113,6 +115,15 @@ Full build documentation (in Japanese) is in `ffdshow_mingw_build.md` in
 this repository, including the GCC patch (`gcc-14-mno-cmov.patch`) needed
 to make GCC 14 honour `-mno-cmov`.
 
+## A request
+
+This build uses MinGW because that is the toolchain at hand. Upstream
+ffdshow is an MSVC project, and an MSVC build would be the more natural
+artifact. If you have MSVC and can build r4422 so that it registers and
+runs on plain Windows 2000 — ideally also usable on Pentium/K6, i.e.
+without CMOV — please do, and consider publishing it. A report that
+such a build exists would already be welcome.
+
 ## License
 
 This work is distributed under the **GNU General Public License, version 2
@@ -165,9 +176,10 @@ XP 世代の API を輸入し、公式 `ffmpeg.dll` には CMOV が数千件含�
   デコーダ生成段で失敗します)。ソフトデコードは可能です
 - ForceWare 169.21 と 175.16 はこの環境では 720p でも DXVA 交渉に
   失敗します。動作確認済みは 163.75 です
-- 再生の滑らかさはディスク転送速度にも依存します。PIO モードの HDD
-  では 720p の供給が追いつきません (UDMA カード、または USB 1.1
-  ストレージからの読み込みで改善します)
+- 再生の滑らかさはディスク転送速度に依存することもあります。
+  ある環境では PIO モードの HDD で 720p の供給が追いつきません
+  でしたが (USB 1.1 ストレージからの読み込みで改善)、別の環境
+  では PIO の HDD でも詰まらずに再生できました。環境によります
 
 ## インストール
 
@@ -236,6 +248,16 @@ mplayerc.exe は Pentium 級で動作します。MPC-HC 1.3.x は CMOV を
 `ffdshow_mingw_build.md` に記載しています。要点は MinGW ビルド系の
 新設、互換シム群、Windows 2000 互換層、i586 化 (CMOV 無効化と
 SIMD の翻訳単位分離)、SEH の置換、Boost の MinGW 調整です。
+
+## お願い
+
+本ビルドは、手元のツールチェインの都合で MinGW 製です。上流の
+ffdshow は MSVC のプロジェクトであり、MSVC 製ビルドの方が本来の
+形だと思います。MSVC をお持ちで、r4422 を素の Windows 2000 で
+登録・動作する形にビルドできる方がいれば、ぜひお願いします
+(できれば Pentium / K6 でも使える、CMOV を含まない形だと
+なお助かります)。公開していただければ幸いですし、できたという
+報告だけでも歓迎します。
 
 ## ライセンス
 
